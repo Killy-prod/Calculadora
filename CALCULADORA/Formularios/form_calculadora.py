@@ -79,6 +79,7 @@ class FormularioCalculadora(tk.Tk):
         # ---- BOTONES DE MEMORIA ----
         roboto_font = font.Font(family="Roboto", size=16, weight='bold')
         memoria_botones = [
+            ('MR', self.memory_recall),
             ('M+', self.memory_add),
             ('M-', self.memory_subtract),
             ('MC', self.memory_clear)
@@ -223,5 +224,12 @@ class FormularioCalculadora(tk.Tk):
         self.memory = 0
         self.operation_label.config(text="Memoria borrada")
         self.entry.delete(0, tk.END)
+
+    def memory_recall(self):
+        """Muestra el valor actual almacenado en memoria en la pantalla."""
+        self.entry.delete(0, tk.END)
+        self.entry.insert(tk.END, str(self.memory))
+        self.operation_label.config(text=f"MR (Memoria = {self.memory})")
+
 
 
