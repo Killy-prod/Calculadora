@@ -101,10 +101,12 @@ class FormularioCalculadora(tk.Tk):
             col_mem += 1
 
         # ---- BOTONES PRINCIPALES ----
+        # Símbolos convencionales de calculadora:
+        # ÷ para división, × para multiplicación, DEL para borrar, % para porcentaje
         buttons = [
-            'C', '%', '<', '/',
-            '7', '8', '9', '*',
-            '4', '5', '6', '-',
+            'C', '%', 'DEL', '÷',
+            '7', '8', '9', '×',
+            '4', '5', '6', '−',
             '1', '2', '3', '+',
             '0', '.', '=',
         ]
@@ -113,7 +115,7 @@ class FormularioCalculadora(tk.Tk):
         col_val = 0
 
         for button in buttons:
-            if button in ['=', '*', '/', '-', '+', 'C', '<', '%']:
+            if button in ['=', '×', '÷', '−', '+', 'C', 'DEL', '%']:
                 color_fondo = cons.COLOR_BOTONES_ESPECIALES_DARK
                 button_font = font.Font(size=16, weight='bold')
             else:
@@ -124,7 +126,7 @@ class FormularioCalculadora(tk.Tk):
                 tk.Button(
                     self,
                     text=button,
-                    width=11,
+                    width=13,
                     height=2,
                     command=lambda b=button: self.on_button_click(b),
                     bg=color_fondo,
@@ -156,7 +158,9 @@ class FormularioCalculadora(tk.Tk):
     def on_button_click(self, value):
         if value == '=':
             try:
-                expression = self.entry.get().replace('%', '/100')
+                # Convertir símbolos convencionales a operadores Python
+                expression = self.entry.get()
+                expression = expression.replace('×', '*').replace('÷', '/').replace('−', '-')
                 result = eval(expression)
                 self.entry.delete(0, tk.END)
                 self.entry.insert(tk.END, str(result))
@@ -175,17 +179,111 @@ class FormularioCalculadora(tk.Tk):
             self.entry.delete(0, tk.END)
             self.operation_label.config(text="")
 
-        elif value == '<':
+        elif value == 'DEL':  # Borrar (backspace)
             current_text = self.entry.get()
             if current_text:
                 new_text = current_text[:-1]
                 self.entry.delete(0, tk.END)
                 self.entry.insert(tk.END, new_text)
                 self.operation_label.config(text=new_text + " ")
+        
+        elif value == '%':  # Botón de porcentaje
+            self.calcular_porcentaje()
+            
         else:
             current_text = self.entry.get()
+            
+            # Validación para evitar ceros a la izquierda en números decimales
+            if value == '0' and current_text and current_text[-1] == '0':
+                # Si el último carácter es 0 y estamos agregando otro 0, no permitirlo
+                # a menos que sea después de un punto decimal
+                if '.' not in current_text or current_text.split('.')[-1].startswith('0'):
+                    return
+            
+            # Validación para evitar múltiples puntos decimales
+            if value == '.' and '.' in current_text:
+                # Buscar si ya hay un punto en el número actual
+                # Dividir por operadores para verificar cada número individualmente
+                operators = ['+', '−', '×', '÷']  # Usar los nuevos símboles
+                last_operator_index = -1
+                for op in operators:
+                    if op in current_text:
+                        last_op_index = current_text.rfind(op)
+                        if last_op_index > last_operator_index:
+                            last_operator_index = last_op_index
+                
+                if last_operator_index == -1:
+                    # No hay operadores, verificar todo el texto
+                    if '.' in current_text:
+                        return
+                else:
+                    # Hay operadores, verificar solo el último número
+                    last_number = current_text[last_operator_index + 1:]
+                    if '.' in last_number:
+                        return
+            
             self.entry.delete(0, tk.END)
             self.entry.insert(tk.END, current_text + value)
+
+    def calcular_porcentaje(self):
+        """Calcula el porcentaje del número actual o en operación"""
+        try:
+            current_text = self.entry.get()
+            if not current_text:
+                return
+                
+            # Convertir símbolos convencionales para el cálculo
+            current_text_calc = current_text.replace('×', '*').replace('÷', '/').replace('−', '-')
+            
+            # Si hay una operación en curso (+, -, *, /)
+            for operator in ['+', '−', '×', '÷']:
+                if operator in current_text:
+                    parts = current_text.split(operator)
+                    if len(parts) == 2 and parts[1]:  # Asegurar que hay un segundo número
+                        base = float(parts[0])
+                        percentage_value = float(parts[1])
+                        
+                        # Calcular el porcentaje del primer número
+                        percentage_amount = base * (percentage_value / 100)
+                        
+                        # Realizar la operación según el operador
+                        if operator == '+':
+                            final_result = base + percentage_amount
+                        elif operator == '−':
+                            final_result = base - percentage_amount
+                        elif operator == '×':
+                            final_result = base * percentage_amount
+                        elif operator == '÷':
+                            final_result = base / percentage_amount if percentage_amount != 0 else "Error"
+                        
+                        self.entry.delete(0, tk.END)
+                        self.entry.insert(tk.END, str(final_result))
+                        
+                        # Guardar en historial
+                        operation = f"{current_text}% = {final_result}"
+                        self.operation_label.config(text=operation)
+                        self.agregar_a_historial(operation)
+                        return
+            
+            # Si no hay operador, simplemente calcular el porcentaje del número
+            number = float(current_text_calc)
+            result = number / 100
+            self.entry.delete(0, tk.END)
+            self.entry.insert(tk.END, str(result))
+            
+            # Guardar en historial
+            operation = f"{current_text}% = {result}"
+            self.operation_label.config(text=operation)
+            self.agregar_a_historial(operation)
+                
+        except ValueError:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(tk.END, "Error")
+            self.operation_label.config(text="Error en porcentaje")
+        except ZeroDivisionError:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(tk.END, "Error: División por cero")
+            self.operation_label.config(text="Error: División por cero")
 
     # ----------------- FUNCIONES DEL HISTORIAL -----------------
     def agregar_a_historial(self, texto):
@@ -230,6 +328,3 @@ class FormularioCalculadora(tk.Tk):
         self.entry.delete(0, tk.END)
         self.entry.insert(tk.END, str(self.memory))
         self.operation_label.config(text=f"MR (Memoria = {self.memory})")
-
-
-
